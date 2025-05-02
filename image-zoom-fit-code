@@ -1,0 +1,25 @@
+import { timeline } from "wix-animations-frontend";
+
+$w.onReady(function () {
+
+});
+
+// Set up the repeater
+$w('#repeater9').onItemReady(($item, itemData, index) => {
+    $item('#partnersLogo').fitMode = "fit";
+
+    const zoomTimeline = timeline()
+        .add($item("#partnersLogo"), {
+            duration: 300,
+            scale: 1.1,
+            easing: "easeOutBack",
+        })
+
+    $item('#partnersLogo').onMouseIn(() => {
+        zoomTimeline.play();
+    });
+
+    $item('#partnersLogo').onMouseOut(() => {
+        zoomTimeline.reverse();
+    });
+});

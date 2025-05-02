@@ -1,0 +1,33 @@
+for test show on hover make first defualt hide the text then access the value in repeater with this code 
+
+$w('#repeater48').onItemReady(($item, itemData) => {
+
+        $item("#fsnumber").text = itemData.title
+        $item("#text723").text = itemData.heading
+        $item('#business-optimization-text1').text = itemData.heading
+        $item("#text720").text = itemData.discripation;
+
+        let container1 = $item('#business-optimization-container1');
+        let text1 = $item('#business-optimization-text1')
+        let text2 = $item('#text723')
+        let line1 = $item('#business-optimization-line1');
+        let line2 = $item('#business-optimization-line2');
+        console.log(text1.text);
+
+        container1.onMouseIn((event) => {
+            text1.hide()
+            line1.hide();
+            text2.show();
+            line2.show();
+        });
+
+        container1.onMouseOut(() => {
+            text1.show()
+            line1.show();
+            text2.hide();
+            line2.hide();
+        });
+
+       
+
+    });

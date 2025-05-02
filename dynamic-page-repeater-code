@@ -1,0 +1,87 @@
+// code for dynamic page and inserting data from code in repeater of dynamic pages:
+
+
+
+import wixData from "wix-data";
+
+$w.onReady(async function () {
+
+    const currentSlug = $w("#dynamicDataset").getCurrentItem().title;
+
+    let query = await wixData
+        .query("FinancialSolutions")
+        .eq("slug", currentSlug)
+        .ascending('title')
+        .find()
+    console.log("this is ", query.items)
+
+    const items = query.items;
+    let currentIndex = 0; // Track the current index of items
+    const itemsPerPage = 3; // Number of items to show per page
+
+    // Function to update the repeater data
+    function updateRepeater() {
+        const endIndex = currentIndex + itemsPerPage;
+        $w("#repeater48").data = items.slice(currentIndex, endIndex);
+
+        if (currentIndex > 0) {
+            $w("#prevFSBtn").enable();
+        }else{
+            $w("#prevFSBtn").disable();
+        }
+
+        if (endIndex == items.length) {
+            $w("#nextFSBtn").disable()
+        }else{
+            $w("#nextFSBtn").enable()
+        }
+
+    }
+
+    // Initial setup
+    updateRepeater();
+
+    $w('#repeater48').onItemReady(($item, itemData) => {
+
+        $item("#fsnumber").text = itemData.title
+        $item("#text723").text = itemData.heading
+        $item('#business-optimization-text1').text = itemData.heading
+        $item("#text720").text = itemData.discripation;
+
+        let container1 = $item('#business-optimization-container1');
+        let text1 = $item('#business-optimization-text1')
+        let text2 = $item('#text723')
+        let line1 = $item('#business-optimization-line1');
+        let line2 = $item('#business-optimization-line2');
+        console.log(text1.text);
+
+        container1.onMouseIn((event) => {
+            text1.hide()
+            line1.hide();
+            text2.show();
+            line2.show();
+        });
+
+        container1.onMouseOut(() => {
+            text1.show()
+            line1.show();
+            text2.hide();
+            line2.hide();
+        });
+
+       
+
+    });
+
+     // Event handler for next button
+    $w("#nextFSBtn").onClick(() => {
+        currentIndex += itemsPerPage;
+        updateRepeater();
+    });
+
+    // Event handler for previous button
+    $w("#prevFSBtn").onClick(() => {
+        currentIndex -= itemsPerPage;
+        updateRepeater();
+    });
+});
