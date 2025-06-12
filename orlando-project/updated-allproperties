@@ -1,0 +1,203 @@
+import wixLocationFrontend from "wix-location-frontend";
+import wixWindow from 'wix-window';
+import wixData from "wix-data";
+
+$w('#propertyRepeater').onItemReady(($item, itemData) => {
+    $item("#coverImage").src = itemData.background
+    $item("#title").text = itemData.title
+    let price = itemData.price.toString();
+    let formattedPrice = price.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    $item('#price').text = `$${formattedPrice}`
+    $item("#address").text = itemData.address;
+    $item("#bathrooms").text = itemData.bathrooms;
+    $item("#bedrooms").text = itemData.bedrooms;
+    $item("#size").text = itemData.size;
+    if (itemData.propertyStatus === "sell") {
+        $item('#sellTypeTag').src = 'https://static.wixstatic.com/shapes/635f06_5bc21a742ea44c88b8dd1550421b5d53.svg'
+    }
+
+})
+
+// search functionlity start:
+
+let minValue;
+let maxValue;
+
+$w.onReady(function () {
+
+    const pricePicker = $w("#rangeWheelCustomElement");
+    pricePicker.on("pricechange", (event) => {
+        const { min, max } = event.detail;
+        minValue = min.replace(/\$|\./g, "");
+        maxValue = max.replace(/\$|\./g, "");
+    });
+
+});
+
+
+$w('#searchPropertyBtn').onClick(async () => {
+    const propertyStatus = $w('#propertyStatusDropdown').value;
+    const propertyType = $w('#propertyTypeDropdown').value;
+    const bedrooms = $w("#bedroomsDropdown").value;
+    const bathrooms = $w("#bathroomsDropdown").value;
+    const snnYes = $w('#snnYes').checked;
+    const snnNo = $w('#snnNo').checked;
+
+    // console.log({ propertyStatus, propertyType, bedrooms, bathrooms, minValue, maxValue, snnYes, snnNo });
+
+    const hasFilters = propertyStatus || propertyType || bedrooms || bathrooms || minValue || maxValue || snnYes || snnNo;
+
+    if (!hasFilters) {
+        console.log("Please select at least one filter");
+        return;
+    }
+
+    let filter = wixData.filter().eq("status", "Active");
+
+    if (propertyStatus) {
+        filter = filter.eq("propertyStatus", propertyStatus);
+    }
+
+    if (propertyType) {
+        filter = filter.eq("propertyType", propertyType);
+    }
+
+    if (bedrooms) {
+        filter = filter.eq("bedrooms", `${bedrooms} Bed`);
+    }
+
+    if (bathrooms) {
+        filter = filter.eq("bathrooms", `${bathrooms} Bath`);
+    }
+
+    if (minValue) {
+        filter = filter.ge("price", Number(minValue));
+    }
+
+    if (maxValue) {
+        filter = filter.le("price", Number(maxValue));
+    }
+
+    if (snnYes && !snnNo) {
+        filter = filter.eq("ssn", "true");
+    } else if (!snnYes && snnNo) {
+        filter = filter.eq("ssn", "false");
+    }
+
+
+    if (filter) {
+        $w("#dataset1").setFilter(filter)
+            .then(() => {
+                // console.log("Dataset is now filtered", filter);
+                // console.log($w('#propertyRepeater').data.length)
+                if (!$w('#propertyRepeater').data.length) {
+                    $w('#noMatchContainer').expand();
+                    $w('#pagination1').collapse();
+                }
+
+                if ($w('#propertyRepeater').data.length) {
+                    $w('#noMatchContainer').collapse();
+                    $w('#pagination1').expand();
+                }
+            })
+            .catch((err) => {
+                console.error("Error filtering dataset:", err);
+            });
+    }
+
+});
+
+// search functionlity end:
+
+
+// reset filters 
+
+$w('#resetBtn').onClick(() => {
+    $w('#noMatchContainer').collapse();
+    $w('#pagination1').expand();
+    $w('#propertyStatusDropdown').value = ''
+    $w('#propertyTypeDropdown').value = ''
+    $w("#bedroomsDropdown").value = ''
+    $w("#bathroomsDropdown").value = ''
+    $w('#snnYes').checked = true
+    $w('#snnNo').checked = true;
+    $w('#rangeWheelCustomElement').setAttribute("reset", String(Date.now()))
+    $w("#dataset1").setFilter(wixData.filter().eq("status", "Active"));
+
+})
+
+// reset filters end
+
+
+// filter properties uisng query params 
+
+$w.onReady(async function () {
+    try {
+
+        const query = wixLocationFrontend.query;
+        if (query?.snnYes) {
+            console.log("query", query)
+            $w('#propertyStatusDropdown').value = query?.status;
+            $w('#propertyTypeDropdown').value = query?.type;
+            $w("#bedroomsDropdown").value = query?.bedrooms;
+            $w("#bathroomsDropdown").value = query?.bathrooms;
+            minValue = parseFloat(query?.minValue);
+            maxValue = parseFloat(query?.maxValue);
+            const propertyType = query?.type;
+            const bedrooms = query?.bedrooms;
+            const bathrooms = query?.bathrooms;
+            const propertyStatus = query?.status;
+
+            let filter = wixData.filter().eq("status", "Active");
+
+            if (propertyStatus) {
+                filter = filter.eq("propertyStatus", propertyStatus);
+            }
+
+            if (propertyType) {
+                filter = filter.eq("propertyType", propertyType);
+            }
+
+            if (bedrooms) {
+                filter = filter.eq("bedrooms", `${bedrooms} Bed`);
+            }
+
+            if (bathrooms) {
+                filter = filter.eq("bathrooms", `${bathrooms} Bath`);
+            }
+
+            if (minValue) {
+                filter = filter.ge("price", Number(minValue));
+            }
+
+            if (maxValue) {
+                filter = filter.le("price", Number(maxValue));
+            }
+
+            $w("#dataset1").setFilter(filter)
+                .then(() => {
+                    console.log("Dataset is now filtered", filter);
+                })
+                .catch((err) => {
+                    console.error("Error filtering dataset:", err);
+                });
+
+            if (!$w('#propertyRepeater').data) {
+                $w('#noMatchContainer').show();
+                $w('#pagination1').collapse();
+            }
+
+        }
+
+    } catch (error) {
+        console.log("error on propery query", error)
+    }
+
+})
+
+
+
+
+$w('#pagination1').onClick((event) => {
+    wixWindow.scrollTo(0, 0);
+});
