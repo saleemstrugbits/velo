@@ -1,0 +1,169 @@
+// The code in this file will load on every page of your site
+import { addIntrestedProperty, findIntrestedProperty } from 'backend/broker/intrestedUser.web.js';
+import { findFavoriteProperties, addFavoriteProperties, deleteFavoriteProperties } from 'backend/user/favoriteProperties.web.js';
+import { currentMember } from "wix-members-frontend";
+import { openLightbox } from 'wix-window';
+import { triggeredEmails } from 'wix-crm';
+import wixLocationFrontend from "wix-location-frontend";
+
+$w.onReady(async function () {
+    const member = await currentMember.getMember();
+    const item = await $w('#brokerPropertyDetailsDynamicData').getCurrentItem();
+    console.log(item)
+
+    let url = wixLocationFrontend.url;
+    if (item.propertyStatus === "sell") {
+        $w('#fee').text = "Sales Compensation:"
+        $w('#sellBtn').src = "https://static.wixstatic.com/shapes/635f06_5bc21a742ea44c88b8dd1550421b5d53.svg"
+        $w('#feeValue').text = item.rentalFee.replace("$", "") + "%"
+    }
+    if (!member) {
+        $w('#intrestedPropertyBtn').onClick(async () => {
+            openLightbox("Login Popup", { message: "User Not Login" })
+        })
+
+        $w('#likeBtn').onClick(async () => {
+            openLightbox("Login Popup", { message: "User Not Login" })
+        })
+
+        $w('#price').expand();
+        $w('#priceValue').expand();
+        if (item?.price) {
+            let numericPart = item.price.toString().replace(/\$/g, ''); 
+            let formatted = numericPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            $w('#priceValue').text = `$${formatted}`;
+        }
+
+    }
+    if (member) {
+        const role = await currentMember.getRoles();
+        // console.log("role", role)
+        const roleName = role[0].title;
+        // console.log("roleName====", roleName)
+        if (roleName === "admin" || roleName === "broker") {
+            $w('#intrestedPropertyBtn').collapse();
+            $w('#likeBtn').collapse();
+            $w('#fee').expand();
+            $w('#feeValue').expand();
+
+        }
+        if (roleName === "user") {
+            $w('#price').expand();
+            $w('#priceValue').expand();
+            if (item?.price) {
+                let numericPart = item.price.replace(/\$/g, ''); // Remove dollar sign
+                let formatted = numericPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.'); // Add dots
+                $w('#priceValue').text = `$${formatted}`;
+            }
+
+            try {
+                const userContactId = member.contactId;
+                console.log("userContactId", userContactId)
+                const userEmail = member.loginEmail;
+                const firstName = member.contactDetails.firstName;
+                const userPhone = member.contactDetails.phones[0] || "No Information";
+                const userProfile = member.profile.profilePhoto.url;
+                const propertyId = item._id;
+                const propertyTitle = item.title;
+                const brokerId = item.brokerId
+                const input = {
+                    propertyTitle: propertyTitle,
+                    email: userEmail,
+                    fullName: firstName,
+                    profilePicture: userProfile,
+                    userId: userContactId,
+                    propertyId: propertyId,
+                    userPhone: userPhone,
+                    brokerId: brokerId
+                }
+
+                const getIntrestedData = await findIntrestedProperty(userContactId, propertyId);
+                if (getIntrestedData?.propertyId) {
+                    $w('#intrestedPropertyBtn').disable();
+                }
+
+                $w('#intrestedPropertyBtn').onClick(async () => {
+                    try {
+
+                        // const getIntrestedData = await findIntrestedProperty(userContactId, propertyId);
+                        // if (getIntrestedData?.propertyId) {
+                        //     $w('#intrestedPropertyBtn').disable();
+                        //     openLightbox("success msg", { message: "Your Info Already Sended" })
+                        // }
+                        if (!getIntrestedData?.propertyId) {
+                            $w('#intrestedPropertyBtn').disable();
+                            $w('#intrestedPropertyBtn').label = "Sending Intrest"
+                            const addData = await addIntrestedProperty(input);
+                            const options = {
+                                variables: {
+                                    property_title: propertyTitle,
+                                    property_location: item.address,
+                                    user_name: firstName,
+                                    user_email: userEmail,
+                                    user_phone: "No Information",
+                                    broker_name: item.brokerName,
+                                    broker_email: item.brokerEmail,
+                                    broker_phone: item.brokerPhone,
+                                    PROPERTY_URL: item['link-copy-of-properties-detail-title-3'],
+                                    SITE_URL: url
+                                }
+                            }
+                            triggeredEmails.emailMember('intrestedpropertyemail', '07566ccb-e52b-43fc-a862-1565b9600b83', options);
+
+                            openLightbox("success msg", { message: "Your Info send To Broker Successfully" })
+                            // console.log(addData);
+                            $w('#intrestedPropertyBtn').label = "I AM INTRESTED IN THIS PROPERTY"
+                        }
+                    } catch (error) {
+                        console.log(error);
+                    }
+                })
+
+                const getFavoriteData = await findFavoriteProperties(userContactId, propertyId);
+                // console.log("getFavoriteData", getFavoriteData)
+
+                if (getFavoriteData?.propertyId) {
+                    $w('#likeBtn').icon = "https://static.wixstatic.com/shapes/635f06_fc69be87a5744cef9fd3d2f94aaa373c.svg"
+                }
+
+                $w('#likeBtn').onClick(async () => {
+                    try {
+
+                        const getFavoriteData = await findFavoriteProperties(userContactId, propertyId);
+                        // console.log("getFavoriteData", getFavoriteData)
+                        if (getFavoriteData?.propertyId) {
+                            const deleteData = await deleteFavoriteProperties(getFavoriteData._id);
+                            $w('#likeBtn').icon = "https://static.wixstatic.com/shapes/9c1135_8c7484d8961d45f8b82e2f9048fc4e33.svg"
+                            openLightbox("success msg", { message: "Property Remove to Your Favorite Listing" })
+                        }
+                        if (!getFavoriteData?.propertyId) {
+                            const favoriteinput = {
+                                userId: userContactId,
+                                // brokerId: brokerId,
+                                propertyId: propertyId,
+                                title: propertyTitle
+                            }
+                            const addData = await addFavoriteProperties(favoriteinput);
+                            openLightbox("success msg", { message: "Property Added to Your Favorite Listing Successfully" })
+                            // console.log(addData);
+                            $w('#likeBtn').icon = "https://static.wixstatic.com/shapes/635f06_fc69be87a5744cef9fd3d2f94aaa373c.svg"
+
+                        }
+                    } catch (error) {
+                        console.log(error);
+                    }
+                })
+
+                console.log("item", item);
+            } catch (error) {
+                console.log(error);
+                openLightbox("fail message", { message: "Faild to send Info to Broker" })
+
+            } finally {
+                $w('#intrestedPropertyBtn').label = "I AM INTRESTED IN THIS PROPERTY"
+            }
+        }
+
+    }
+
+});
