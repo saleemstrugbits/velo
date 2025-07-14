@@ -1,0 +1,422 @@
+// second custom element 
+
+const rangeWheelContainer = document.createElement("template");
+
+const rangeWheelHtml = `
+     <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #7a7a7a;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .dropdown {
+            background: rgb(246 246 246);
+            padding: 14px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .price-picker {
+            width: 100%;
+            max-width: 600px;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .header {
+            background: #0077b6;
+            color: white;
+            padding: 14px;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .picker-body {
+            display: flex;
+            justify-content: space-around;
+            padding: 20px 10px;
+            position: relative;
+            height: 200px;
+        }
+
+        .picker-column {
+            width: 200px;
+            height: 200px;
+            overflow-y: scroll;
+            scroll-snap-type: y mandatory;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            position: relative;
+            z-index: 2;
+        }
+
+        .picker-column::-webkit-scrollbar {
+            display: none;
+        }
+
+        .picker-item {
+            scroll-snap-align: center;
+            text-align: center;
+            height: 40px;
+            line-height: 40px;
+            font-size: 18px;
+            color: #666;
+            transition: color 0.2s, font-weight 0.2s;
+        }
+
+        .picker-item.selected {
+            font-weight: bold;
+            color: #000;
+            font-size: 20px;
+        }
+
+        .picker-labels {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 18px 4px 18px;
+    font-size: 15px;
+    color: #888;
+    font-weight: 500;
+    margin-top: 8px;
+    margin-bottom: -8px;
+}
+
+        .shadow-top,
+        .shadow-bottom {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 40px;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .shadow-top {
+            top: 0;
+            background: linear-gradient(to bottom, white, transparent);
+        }
+
+        .shadow-bottom {
+            bottom: 0;
+            background: linear-gradient(to top, white, transparent);
+        }
+
+        .center-highlight {
+            position: absolute;
+            top: 50%;
+            left: 10px;
+            right: 10px;
+            height: 40px;
+            margin-top: -20px;
+            /* Half of item height */
+            /* background: rgba(0, 0, 0, 0.05); */
+            border-radius: 8px;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 20px;
+            background: #f0f0f0;
+        }
+
+        .footer button {
+            background: none;
+            border: none;
+            font-weight: bold;
+            font-size: 16px;
+            color: #0077b6;
+            cursor: pointer;
+        }
+
+    .center-highlight {
+    position: absolute;
+    top: 50%;
+    left: 10px;
+    right: 10px;
+    height: 40px;
+    margin-top: -20px;
+    background: rgba(200, 200, 200, 0.15); /* light gray, subtle */
+    border-radius: 8px;
+    z-index: 1;
+    pointer-events: none;
+}
+
+        /* // media query for mobile */
+        @media (max-width: 600px) {
+            .modal {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.5);
+                justify-content: center;
+                align-items: center;
+                z-index: 1000;
+            }
+
+            .price-picker {
+                width: 100%;
+                max-width: 600px;
+                padding: 0px 20px;
+                position: absolute;
+                bottom: 0;
+                background: white;
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            }
+        }
+    </style>
+
+    <div class="dropdown" id="priceDropdown">$0 - $30.000.000</div>
+
+    <div class="modal" id="priceModal">
+        <div class="price-picker">
+            <div class="header">Select Price</div>
+            <div class="picker-labels">
+    <p>Min Price</p>
+    <p>Max Price</p>
+</div>
+            <div class="picker-body">
+                <div class="shadow-top"></div>
+                <div class="shadow-bottom"></div>
+                <div class="center-highlight"></div>
+                <div class="picker-column" id="minColumn"></div>
+                <div class="picker-column" id="maxColumn"></div>
+            </div>
+            <div class="footer">
+                <button onclick="closeModal()">Cancel</button>
+                <button onclick="applySelection()">Apply</button>
+            </div>
+        </div>
+    </div>
+`;
+
+rangeWheelContainer.innerHTML = rangeWheelHtml;
+
+class PriceRangePicker extends HTMLElement {
+    constructor() {
+        super();
+        this.attachShadow({ mode: "open" });
+        this.shadowRoot.appendChild(rangeWheelContainer.content.cloneNode(true));
+    }
+
+    connectedCallback() {
+        // Get shadow DOM elements
+        this.dropdown = this.shadowRoot.getElementById("priceDropdown");
+        this.modal = this.shadowRoot.getElementById("priceModal");
+        this.minCol = this.shadowRoot.getElementById("minColumn");
+        this.maxCol = this.shadowRoot.getElementById("maxColumn");
+
+        // Generate price ranges
+        this.minPrices = [
+            0, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000,
+            10000, 25000, 50000, 100000, 150000, 200000, 250000, 300000, 350000, 400000, 450000, 500000,
+            5500000, 6000000, 6500000, 7000000, 7500000, 8000000, 8500000, 9000000, 9500000, 10000000,
+            11000000, 12000000, 13000000, 14000000, 15000000, 16000000, 17000000, 18000000, 19000000, 20000000,
+            22500000, 25000000, 27500000, 30000000
+
+        ];
+        this.maxPrices = [
+            1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000,
+            10000, 25000, 50000, 100000, 150000, 200000, 250000, 300000, 350000, 400000, 450000, 500000,
+            5500000, 6000000, 6500000, 7000000, 7500000, 8000000, 8500000, 9000000, 9500000,
+            1000000, 1100000, 1200000, 1300000, 1400000, 1500000, 1600000, 1700000, 1800000, 1900000, 2000000,
+            2250000, 2500000, 2750000, 3000000, 3500000, 4000000, 4500000, 5000000,
+            5500000, 6000000, 6500000, 7000000, 7500000, 8000000, 8500000, 9000000, 9500000, 10000000,
+            11000000, 12000000, 13000000, 14000000, 15000000, 16000000, 17000000, 18000000, 19000000, 20000000,
+            22500000, 25000000, 27500000, 30000000
+        ];
+
+        this.minColHasPadding = false;
+        this.maxColHasPadding = false;
+
+        // Render picker items WITHOUT padding initially
+        this.createPickerItems(this.minPrices, this.minCol, 2, false);
+        this.createPickerItems(this.maxPrices, this.maxCol, 2, false);
+
+        // Event listeners
+        this.dropdown.addEventListener("click", () => this.openModal());
+        this.minCol.addEventListener("scroll", () => {
+            if (!this.minColHasPadding) {
+                const selectedIndex = Array.from(this.minCol.children).findIndex(
+                    el => el.classList && el.classList.contains('selected')
+                );
+                this.createPickerItems(this.minPrices, this.minCol, selectedIndex - 0, true);
+                this.minColHasPadding = true;
+            }
+            this.updateSelected(this.minCol);
+        });
+        this.maxCol.addEventListener("scroll", () => {
+            if (!this.maxColHasPadding) {
+                const selectedIndex = Array.from(this.maxCol.children).findIndex(
+                    el => el.classList && el.classList.contains('selected')
+                );
+                this.createPickerItems(this.maxPrices, this.maxCol, selectedIndex - 0, true);
+                this.maxColHasPadding = true;
+            }
+            this.updateSelected(this.maxCol);
+        });
+
+        // Modal buttons
+        this.shadowRoot.querySelectorAll("button").forEach(btn => {
+            if (btn.textContent === "Cancel") {
+                btn.addEventListener("click", () => this.closeModal());
+            }
+            if (btn.textContent === "Apply") {
+                btn.addEventListener("click", () => this.applySelection());
+            }
+        });
+
+        this.addControlledScroll(this.minCol);
+        this.addControlledScroll(this.maxCol);
+
+    }
+
+    addControlledScroll(column) {
+    let isScrolling = false;
+
+    column.addEventListener("wheel", (e) => {
+        e.preventDefault(); // stop native fast scrolling
+
+        if (isScrolling) return;
+
+        isScrolling = true;
+
+        const direction = e.deltaY > 0 ? 1 : -1;
+        const itemHeight = 40;
+
+        // Snap scroll by one item
+        column.scrollBy({
+            top: direction * itemHeight,
+            behavior: "smooth",
+        });
+
+        // Prevent rapid firing
+        setTimeout(() => {
+            isScrolling = false;
+        }, 150); // You can fine-tune this delay
+    }, { passive: false });
+}
+
+
+    generatePriceRange(min, max, step = 500) {
+        const values = [];
+        for (let i = min; i <= max; i += step) {
+            values.push(i);
+        }
+        return values;
+    }
+
+    createPickerItems(values, container, selectedIndex = 2, withPadding = true) {
+        container.innerHTML = '';
+        if (withPadding) {
+            // Add padding items at the top
+            for (let i = 0; i < 2; i++) {
+                const pad = document.createElement('div');
+                pad.className = 'picker-item';
+                pad.style.visibility = 'hidden';
+                container.appendChild(pad);
+            }
+        }
+        // Add real values
+        values.forEach((val, i) => {
+            const div = document.createElement('div');
+            div.className = 'picker-item';
+            if (i === selectedIndex) div.classList.add('selected');
+            div.innerText = `$${val.toLocaleString("en-US").replace(/,/g, ".")}`;
+            container.appendChild(div);
+        });
+        if (withPadding) {
+            // Add padding items at the bottom
+            for (let i = 0; i < 2; i++) {
+                const pad = document.createElement('div');
+                pad.className = 'picker-item';
+                pad.style.visibility = 'hidden';
+                container.appendChild(pad);
+            }
+            // Adjust scrollTop to center the selected item
+            container.scrollTop = (selectedIndex + 2) * 40;
+        } else {
+            // Adjust scrollTop to selected item without padding
+            container.scrollTop = selectedIndex * 40;
+        }
+    }
+
+    updateSelected(container) {
+        const items = container.querySelectorAll('.picker-item');
+        items.forEach(i => i.classList.remove('selected'));
+        // Calculate the index of the item in the vertical center
+        const center = container.scrollTop + container.clientHeight / 2;
+        const index = Math.round(center / 40 - 0.5); // -0.5 to align with center of item
+        if (items[index]) {
+            items[index].classList.add('selected');
+        }
+    }
+
+    openModal() {
+        this.modal.style.display = "flex";
+    }
+
+    closeModal() {
+        this.modal.style.display = "none";
+    }
+
+    applySelection() {
+        const min = this.minCol.querySelector('.selected')?.innerText || "$0";
+        const max = this.maxCol.querySelector('.selected')?.innerText || "$0";
+        this.dropdown.innerText = `${min} - ${max}`;
+
+        this.dispatchEvent(new CustomEvent("pricechange", {
+            detail: { min, max },
+            bubbles: true, // allow event to bubble up to parent
+            composed: true // allow event to cross shadow DOM boundary
+        }));
+        this.closeModal();
+    }
+
+    resetPicker() {
+        // Reset dropdown text to default
+        this.dropdown.innerText = "$0 - $30.000.000";
+        // Reset pickers to default selection (index 2)
+        this.minColHasPadding = false;
+        this.maxColHasPadding = false;
+        this.createPickerItems(this.minPrices, this.minCol, 2, false);
+        this.createPickerItems(this.maxPrices, this.maxCol, 2, false);
+    }
+
+
+    attributeChangedCallback(name, oldValue, newValue) {
+        if (name === 'reset') {
+            this.resetPicker();
+        }
+    }
+
+
+    static get observedAttributes() {
+        return ['reset'];
+    }
+}
+
+customElements.define("price-range-picker", PriceRangePicker);
